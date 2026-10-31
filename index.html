@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Builder 40K</title>
+  <!-- Installation sur l'écran d'accueil (iPad, iPhone, Android) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1b1321">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Builder 40K">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Thèmes de faction (couleurs, police des titres) -->
+  <link rel="stylesheet" href="css/themes.css">
+</head>
+<body>
+  <header class="topbar" id="topbar"></header>
+  <main id="screen"></main>
+  <footer class="actionbar" id="actionbar"></footer>
+  <div id="overlay"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Moteur -->
+  <script src="js/config.js"></script>
+  <script src="js/storage.js"></script>
+  <!-- Saison de jeu : changer ce fichier quand une nouvelle saison sort -->
+  <script src="saisons/saison-2026.js"></script>
+  <script src="js/scenarios.js"></script>
+  <script src="js/loader.js"></script>
+  <script src="factions/catalog.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/screen.js"></script>
+  <script src="js/glossary.js"></script>
+  <!-- Règles communes à toutes les factions -->
+  <script src="regles/stratagemes-communs.js"></script>
+  <script src="js/setup.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/builder.js"></script>
+  <script src="js/army.js"></script>
+  <script src="js/builder-ui.js"></script>
+  <script src="js/launch.js"></script>
+  <script src="js/companion.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/collection.js"></script>
+  <script src="js/codex.js"></script>
+  <script src="js/listview.js"></script>
+  <script src="js/app.js"></script>
+  <!-- Compléments du moteur (Ligne gagnée, Corsaires, compteurs de pions…) -->
+  <script src="js/regles-etendues.js"></script>
+  <!-- Installation et sauvegarde sur iPad (hors connexion, export par partage) -->
+  <script src="js/pwa.js"></script>
+  <!-- Les fichiers de faction sont chargés à la demande par loader.js -->
+</body>
+</html>

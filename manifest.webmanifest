@@ -1,0 +1,17 @@
+{
+  "name": "Builder 40K",
+  "short_name": "Builder 40K",
+  "description": "Builder d'armée et compagnon de jeu Warhammer 40K",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#1b1321",
+  "theme_color": "#1b1321",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
