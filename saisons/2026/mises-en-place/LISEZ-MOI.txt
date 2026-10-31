@@ -1,0 +1,85 @@
+MISES EN PLACE DE LA TABLE — SAISON 2026
+
+Les 45 images portent les noms d'origine du site (RapidIngress-xxxxx.png).
+Pour en remplacer une, remets simplement le fichier du site ici, sans le renommer.
+
+Codes : th = Take and Hold, di = Disruption, pf = Purge the Foe,
+        pa = Priority Assets, re = Reconnaissance
+Les deux codes sont toujours dans cet ordre (th, di, pf, pa, re),
+quel que soit le joueur qui joue quelle disposition.
+La dernière lettre (a, b, c) est la configuration.
+
+Take and Hold / Take and Hold
+  RapidIngress-ththa.png
+  RapidIngress-ththb.png
+  RapidIngress-ththc.png
+
+Take and Hold / Disruption
+  RapidIngress-thdia.png
+  RapidIngress-thdib.png
+  RapidIngress-thdic.png
+
+Take and Hold / Purge the Foe
+  RapidIngress-thpfa.png
+  RapidIngress-thpfb.png
+  RapidIngress-thpfc.png
+
+Take and Hold / Priority Assets
+  RapidIngress-thpaa.png
+  RapidIngress-thpab.png
+  RapidIngress-thpac.png
+
+Take and Hold / Reconnaissance
+  RapidIngress-threa.png
+  RapidIngress-threb.png
+  RapidIngress-threc.png
+
+Disruption / Disruption
+  RapidIngress-didia.png
+  RapidIngress-didib.png
+  RapidIngress-didic.png
+
+Disruption / Purge the Foe
+  RapidIngress-dipfa.png
+  RapidIngress-dipfb.png
+  RapidIngress-dipfc.png
+
+Disruption / Priority Assets
+  RapidIngress-dipaa.png
+  RapidIngress-dipab.png
+  RapidIngress-dipac.png
+
+Disruption / Reconnaissance
+  RapidIngress-direa.png
+  RapidIngress-direb.png
+  RapidIngress-direc.png
+
+Purge the Foe / Purge the Foe
+  RapidIngress-pfpfa.png
+  RapidIngress-pfpfb.png
+  RapidIngress-pfpfc.png
+
+Purge the Foe / Priority Assets
+  RapidIngress-pfpaa.png
+  RapidIngress-pfpab.png
+  RapidIngress-pfpac.png
+
+Purge the Foe / Reconnaissance
+  RapidIngress-pfrea.png
+  RapidIngress-pfreb.png
+  RapidIngress-pfrec.png
+
+Priority Assets / Priority Assets
+  RapidIngress-papaa.png
+  RapidIngress-papab.png
+  RapidIngress-papac.png
+
+Priority Assets / Reconnaissance
+  RapidIngress-parea.png
+  RapidIngress-pareb.png
+  RapidIngress-parec.png
+
+Reconnaissance / Reconnaissance
+  RapidIngress-rerea.png
+  RapidIngress-rereb.png
+  RapidIngress-rerec.png

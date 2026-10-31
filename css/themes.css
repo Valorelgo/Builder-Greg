@@ -1,0 +1,91 @@
+/* =========================================================
+   THÈMES DE FACTION
+   Le thème par défaut (violet, Cinzel) est celui de style.css.
+   Chaque faction peut le remplacer ici : loader.js pose
+   data-faction="<id>" sur <html> au chargement de la faction.
+   La couleur d'accent elle-même vient de factions/catalog.js.
+   ========================================================= */
+
+/* ---------- Polices de thème (licence SIL OFL, voir fonts/) ---------- */
+
+@font-face {
+  font-family: "Big Shoulders";
+  src: url("../fonts/BigShoulders-Bold.ttf") format("truetype");
+  font-weight: 100 900;          /* une seule graisse, utilisée pour tous les titres */
+  font-display: swap;
+}
+
+/* =========================================================
+   CHAOS SPACE MARINES — rouge sang, titres bruts et condensés
+   ========================================================= */
+
+:root[data-faction="chaos-space-marines"] {
+  --bg:      #170d0d;   /* rouge noirci */
+  --panel:   #221414;
+  --panel-2: #2e1a19;
+  --line:    #4d2b29;
+  --muted:   #bba5a1;
+  --accent-light: #e0776b;
+
+  --font-display: "Big Shoulders", "Impact", "Arial Narrow", sans-serif;
+}
+
+/* Titres : capitales légèrement espacées, plus lisibles en police condensée */
+:root[data-faction="chaos-space-marines"] .screen-title,
+:root[data-faction="chaos-space-marines"] .dd-title,
+:root[data-faction="chaos-space-marines"] .uc-title h1 { letter-spacing: .01em; }
+
+/* Teintes violettes écrites en dur dans style.css, remplacées par du rouge */
+:root[data-faction="chaos-space-marines"] .uc-head { background: color-mix(in srgb, var(--accent) 40%, var(--bg)); }
+:root[data-faction="chaos-space-marines"] .st-box small,
+:root[data-faction="chaos-space-marines"] .uc-meta { color: #f0dbd6; }
+:root[data-faction="chaos-space-marines"] .st-box b { color: #2a1212; }
+:root[data-faction="chaos-space-marines"] .st-inv b { color: #f3e6e2; border-color: #f3e6e2; }
+:root[data-faction="chaos-space-marines"] .wab { border-color: #7f3a33; }
+:root[data-faction="chaos-space-marines"] .wtable tr.off td,
+:root[data-faction="chaos-space-marines"] .wtable tr.off .wprof,
+:root[data-faction="chaos-space-marines"] .wgear .off,
+:root[data-faction="chaos-space-marines"] .ab.off { color: #7f6a66; }
+:root[data-faction="chaos-space-marines"] .wtable tr.off .wab { color: #7f6a66; border-color: #4f3330; }
+:root[data-faction="chaos-space-marines"] .abr { background: rgba(184, 50, 42, .08); }
+:root[data-faction="chaos-space-marines"] .mc-round,
+:root[data-faction="chaos-space-marines"] .mc-tag { background: #0f0707; }
+:root[data-faction="chaos-space-marines"] .ov-back { background: rgba(12, 4, 4, .62); }
+:root[data-faction="chaos-space-marines"] .dp-img { background: #0d0606; }
+:root[data-faction="chaos-space-marines"] .mt-turn.is-opp { background: rgba(80, 90, 120, .22); border-left-color: #7d8bb0; }
+
+/* =========================================================
+   AELDARI — turquoise des vaisseaux-mondes, titres en Cinzel
+   (police par défaut de style.css, gardée ici pour la lisibilité du thème)
+   ========================================================= */
+
+:root[data-faction="aeldari"] {
+  --bg:      #0c1819;   /* bleu-vert abyssal */
+  --panel:   #122325;
+  --panel-2: #183133;
+  --line:    #2a4a4c;
+  --muted:   #9fbab8;
+  --gold:    #e3c98a;   /* or pâle, plus doux avec le turquoise */
+  --accent-light: #7fe3d6;
+
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+}
+
+/* Teintes violettes écrites en dur dans style.css, remplacées par du turquoise */
+:root[data-faction="aeldari"] .uc-head { background: color-mix(in srgb, var(--accent) 32%, var(--bg)); }
+:root[data-faction="aeldari"] .st-box small,
+:root[data-faction="aeldari"] .uc-meta { color: #d8f1ee; }
+:root[data-faction="aeldari"] .st-box b { color: #0c2422; }
+:root[data-faction="aeldari"] .st-inv b { color: #e6f6f4; border-color: #e6f6f4; }
+:root[data-faction="aeldari"] .wab { border-color: #2f7d76; }
+:root[data-faction="aeldari"] .wtable tr.off td,
+:root[data-faction="aeldari"] .wtable tr.off .wprof,
+:root[data-faction="aeldari"] .wgear .off,
+:root[data-faction="aeldari"] .ab.off { color: #6a8583; }
+:root[data-faction="aeldari"] .wtable tr.off .wab { color: #6a8583; border-color: #2c4a48; }
+:root[data-faction="aeldari"] .abr { background: rgba(46, 196, 182, .07); }
+:root[data-faction="aeldari"] .mc-round,
+:root[data-faction="aeldari"] .mc-tag { background: #071112; }
+:root[data-faction="aeldari"] .ov-back { background: rgba(3, 12, 13, .62); }
+:root[data-faction="aeldari"] .dp-img { background: #071011; }
+:root[data-faction="aeldari"] .mt-turn.is-opp { background: rgba(150, 90, 120, .2); border-left-color: #b07d95; }
