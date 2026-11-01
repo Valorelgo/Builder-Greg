@@ -7,7 +7,7 @@
    du navigateur (localStorage) et ne sont jamais envoyées sur GitHub.
    ========================================================= */
 
-const VERSION = "20261101-0028";
+const VERSION = "20261101-1915";
 const CACHE = `builder40k-${VERSION}`;
 const FILES = [
   "./",
@@ -20,6 +20,7 @@ const FILES = [
   "factions/chaos-space-marines.js",
   "factions/emperors-children.js",
   "factions/legions-of-excess.js",
+  "factions/necrons.js",
   "factions/ynnari.js",
   "fonts/AlegreyaSans-Bold.ttf",
   "fonts/AlegreyaSans-Italic.ttf",
@@ -27,6 +28,7 @@ const FILES = [
   "fonts/AlegreyaSans-Regular.ttf",
   "fonts/BigShoulders-Bold.ttf",
   "fonts/Cinzel-VariableFont_wght.ttf",
+  "fonts/Oxanium-VariableFont_wght.ttf",
   "icons/apple-touch-icon.png",
   "icons/icon-192.png",
   "icons/icon-512.png",
