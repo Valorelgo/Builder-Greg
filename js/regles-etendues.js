@@ -7,6 +7,11 @@
    Données reconnues :
    ---------------------------------------------------------------
    Unités
+     leader.type: "support"     rangée automatiquement dans la catégorie
+                                « Supports » (sauf héros épiques), carte
+                                « Support : doit soutenir… » ; la liste est
+                                signalée incorrecte tant qu'il n'est pas
+                                rattaché (l'ordre d'ajout reste libre)
      travellingPlayers : true   1 exemplaire (ou d.travellingPlayersMax
                                 si un détachement choisi le prévoit)
      cannotBeWarlord   : true   ne peut pas être Seigneur de Guerre
@@ -21,6 +26,15 @@
                                 variante : rejoint directement une unité
                                 ayant ces mots-clés, menée ou non
                                 (ex. Support Artillery des Aeldari)
+     transport.maxUnits         nombre maximum d'unités embarquées (une
+                                unité et ses personnages comptent pour 1),
+                                en plus de la capacité en figurines
+                                (ex. Night Scythe : 1 unité)
+     transport.limits: [{ to: [[kw…]], max, label, labelPlural? }]
+                                plafonds de figurines par type de passager :
+                                chaque figurine compte dans la 1re limite
+                                dont elle a les mots-clés
+                                (ex. Ghost Ark : 10 Warriors + 1 personnage)
    Détachements
      grantsKeywords → BATTLELINE   compte désormais pour le nombre
                                    d'exemplaires (Lignes)
@@ -31,6 +45,10 @@
                                    par optimisation compris)
      travellingPlayersMax          nombre d'exemplaires permis
      constraints: { type: "warlordOneOf", names: [...] }
+     mandatoryEnhancement: { to: [[mots-clés]] }
+                                   chaque unité concernée doit porter une
+                                   optimisation de ce détachement
+                                   (ex. C'tan du Panthéon de Malheur)
    Options d'équipement
      allModels: true    tout ou rien : un seul choix (Non / l'arme),
                         appliqué à toutes les figurines concernées
@@ -59,6 +77,28 @@ const enhLabel = (enh, u) => enh.kind === "amelioration" ? "Amélioration"
 /* =========================================================
    BUILDER
    ========================================================= */
+
+/* ---------- Catégorie « Supports » ----------
+   Les unités de type support (leader.type: "support") sont rangées à part,
+   juste après les personnages, quelle que soit la catégorie de leur fiche
+   (gardée dans u.sheetCategory). Les héros épiques restent dans la leur.
+   Fait une fois, à l'enregistrement de chaque faction. */
+
+const isSupport = u => !!(u && u.leader && u.leader.type === "support");
+if (!UnitCategories.some(c => c.id === "supports")) {
+  const i = UnitCategories.findIndex(c => c.id === "char-vehicle");
+  UnitCategories.splice(i + 1, 0, { id: "supports", label: "Supports" });
+}
+const baseRegister = Factions.register;
+Factions.register = function (data) {
+  (data.units || []).forEach(u => {
+    if (isSupport(u) && !(u.keywords || []).includes("Epic Hero") && u.category !== "supports") {
+      u.sheetCategory = u.category;
+      u.category = "supports";
+    }
+  });
+  return baseRegister.call(this, data);
+};
 
 // Exemplaires : Ligne gagnée par détachement, Travelling Players
 Builder.maxCopies = function (app, u) {
@@ -252,6 +292,30 @@ Army.issues = function (ctx) {
 };
 
 // « Menée par » : seulement les personnages ; l'escorte est signalée à part
+// Résumé du lancement : les escortes ne sont pas des personnages rattachés.
+// L'entrée retient qu'elle est une escorte (escort: true) au rattachement ;
+// sinon on cherche la fiche dans les factions déjà chargées.
+const baseSetAttach = Army.setAttach;
+Army.setAttach = function (ctx, uid, target) {
+  baseSetAttach.call(this, ctx, uid, target);
+  const e = Builder.entry(ctx, uid);
+  if (e && isRetinue(Builder.unit(ctx, e.unitId))) e.escort = true;
+};
+
+const knownEscort = e => e.escort || Object.values(Factions._registry || {})
+  .some(f => (f.units || []).some(u => u.id === e.unitId && isRetinue(u)));
+
+const baseSummary = Army.summary;
+Army.summary = function (units) {
+  const out = baseSummary.call(this, units);
+  const esc = units.filter(e => e.attachedTo && units.some(t => t.uid === e.attachedTo) && knownEscort(e)).length;
+  if (!esc) return out;
+  const chars = units.filter(e => e.attachedTo && units.some(t => t.uid === e.attachedTo)).length - esc;
+  const p = (n, s, pl) => `${n} ${n > 1 ? pl : s}`;
+  return [chars ? p(chars, "personnage rattaché", "personnages rattachés") : "aucun personnage rattaché",
+          p(esc, "escorte", "escortes"), ...out.slice(1)];
+};
+
 const baseLeadersOf = Builder.leadersOf;
 Builder.leadersOf = function (app, target) {
   return baseLeadersOf.call(this, app, target).filter(x => !isRetinue(this.unit(app, x.unitId)));
@@ -263,6 +327,60 @@ Army.bonusBox = function (ctx, e) {
   const line = esc.length ? `<p class="cfg-led">Escortée par ${esc.map(x => `<button class="cfg-link" data-action="selEntry" data-arg="${x.uid}">${UI.esc(Builder.label(ctx, x))} ›</button>`).join(" ")}</p>` : "";
   return line + baseBonusBox.call(this, ctx, e);
 };
+
+/* ---------- Transports limités en nombre d'unités (transport.maxUnits) ---------- */
+
+const unitCap = (ctx, t) => { const u = Builder.unit(ctx, t.unitId); return u && u.transport && u.transport.maxUnits; };
+const plural = n => (n > 1 ? "s" : "");
+
+// Plafonds par type de passager (transport.limits) : { index de limite: figurines }
+const limitCounts = (ctx, t, groups) => {
+  const tu = Builder.unit(ctx, t.unitId), limits = (tu && tu.transport && tu.transport.limits) || [];
+  const counts = limits.map(() => 0);
+  groups.forEach(g => Army.group(ctx, g).forEach(x => {
+    const u = Builder.unit(ctx, x.unitId);
+    const i = limits.findIndex(l => l.to.some(alt => alt.every(k => Builder.has(ctx, u, k, x))));
+    if (i >= 0) counts[i] += Builder.size(u, x).models;
+  }));
+  return limits.map((l, i) => ({ l, n: counts[i] })).filter(c => c.n > c.l.max);
+};
+const limLabel = (l, n) => (n > 1 ? l.labelPlural || `${l.label}s` : l.label);
+
+const baseToggleEmbark = Army.toggleEmbark;
+Army.toggleEmbark = function (ctx, tUid, uid) {
+  const t = Builder.entry(ctx, tUid), e = Builder.entry(ctx, uid);
+  const max = t && unitCap(ctx, t);
+  if (t && e && e.embarkedIn !== tUid) {
+    const over = limitCounts(ctx, t, [...this.passengers(ctx, t), e])[0];
+    if (over) return `${Builder.label(ctx, t)} ne peut transporter que ${over.l.max} ${limLabel(over.l, over.l.max)} (${over.n} avec ${Builder.label(ctx, e)}).`;
+  }
+  if (max && e && e.embarkedIn !== tUid && this.passengers(ctx, t).length >= max)
+    return `${Builder.label(ctx, t)} ne peut transporter ${max > 1 ? `que ${max} unités` : "qu'une seule unité"}.`;
+  return baseToggleEmbark.call(this, ctx, tUid, uid);
+};
+
+// Compteur affiché en unités plutôt qu'en places
+const baseTransportControl = Army.transportControl;
+Army.transportControl = function (ctx, t, scope) {
+  const html = baseTransportControl.call(this, ctx, t, scope);
+  const max = unitCap(ctx, t);
+  if (!max) return html;
+  const n = this.passengers(ctx, t).length;
+  return html.replace(/(<span class="emb-cap)[^"]*(">)[^<]*(<\/span>)/,
+    `$1${n > max ? " is-over" : ""}$2${n} / ${max} unité${plural(max)}$3`);
+};
+
+const transportUnitIssues = ctx => Army.transports(ctx).flatMap(t => {
+  const out = [];
+  const max = unitCap(ctx, t), n = max ? Army.passengers(ctx, t).length : 0;
+  if (max && n > max) out.push({ msg: `${Builder.label(ctx, t)} : ${n} unités embarquées pour ${max}.`, uid: t.uid });
+  limitCounts(ctx, t, Army.passengers(ctx, t)).forEach(c =>
+    out.push({ msg: `${Builder.label(ctx, t)} : trop de passagers (${c.n} ${limLabel(c.l, c.n)}, ${c.l.max} au maximum).`, uid: t.uid }));
+  return out;
+});
+
+const baseIssues2 = Army.issues;
+Army.issues = function (ctx) { return baseIssues2.call(this, ctx).concat(transportUnitIssues(ctx)); };
 
 // Vérifications supplémentaires de la liste
 const baseValidate = Builder.validate;
@@ -294,12 +412,45 @@ Builder.validate = function (app) {
   // Escortes : rattachement encore valable ?
   retinueIssues(app).forEach(i => push(i.msg, i.uid));
 
+  // Optimisation imposée par un détachement (mandatoryEnhancement)
+  Setup.selected(app).filter(d => d.mandatoryEnhancement).forEach(d => entries.forEach(({ e, u }) => {
+    const ks = this.kwSet(app, u, e, false);
+    if (!d.mandatoryEnhancement.to.some(alt => hasAll(ks, alt))) return;
+    const en = e.enhancement && this.enh(app, e.enhancement);
+    if (!en || en.det.id !== d.id)
+      push(`${this.label(app, e)} doit prendre son optimisation de ${d.name}.`, e.uid);
+  }));
+
   return out;
 };
 
 /* =========================================================
    INTERFACE DU BUILDER
    ========================================================= */
+
+// Carte : « Support » au lieu de « Leader », et ligne « Escorte » pour les escortes
+const listOr = names => names.length > 1 ? `${names.slice(0, -1).join(", ")} ou ${names[names.length - 1]}` : names.join("");
+const baseAbilities = BuilderUI.abilities;
+BuilderUI.abilities = function (app, u, counts, e) {
+  let html = baseAbilities.call(this, app, u, counts, e);
+  if (isSupport(u)) {
+    html = html.replace(/<p class="ab"><b>Leader<\/b> : peut mener [^<]*<\/p>/,
+      `<p class="ab"><b>Support</b> : doit soutenir une unité ${UI.esc(listOr(u.leader.canLead))}. Ne peut pas être joué seul.</p>`);
+  }
+  if (isRetinue(u)) {
+    html = html.replace(/<\/div>$/,
+      `<p class="ab"><b>Escorte</b> : peut rejoindre une ${UI.esc(retinueNeed(u.retinue))}.</p></div>`);
+  }
+  return html;
+};
+
+// Ajout d'un support : rappel qu'il devra être rattaché (l'ordre d'ajout reste libre)
+const baseAddBox = BuilderUI.addBox;
+BuilderUI.addBox = function (app, u) {
+  const html = baseAddBox.call(this, app, u);
+  if (!isSupport(u)) return html;
+  return html.replace(/<\/div>\s*$/, `<p class="hint">Support : à rattacher ensuite à une unité ${UI.esc(listOr(u.leader.canLead))}. La liste reste incorrecte tant qu'il ne l'est pas.</p></div>`);
+};
 
 BuilderUI.enhChoices = function (app, u, e) {
   const r = Builder.rules(app);
