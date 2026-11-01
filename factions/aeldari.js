@@ -2692,7 +2692,7 @@ Factions.register({
     /* ---------- Infanterie ----------
        Aspect Shrine Token : 1 pion par tranche de 5 figurines (texte seulement).
        Support Artillery (plateformes) : rattachement à des Guardian Defenders
-       au déploiement, rappelé dans l'aptitude. */
+       géré comme une escorte (retinue.joins), une plateforme par unité. */
 
     {
       id: "corsair-skyreavers",
@@ -2844,6 +2844,8 @@ Factions.register({
       category: "infantry",
       base: "40mm",
       keywords: ["Infantry", "Aeldari", "Frame", "Support Weapon", "D-cannon Platform", "Asuryani"],
+      // Support Artillery : rejoint une unité de Guardian Defenders (js/regles-etendues.js)
+      retinue: { joins: [["Guardian Defenders"]], label: "Guardian Defenders" },
       stats: { M: "7\"", T: 6, Sv: "4+", W: 5, Ld: "7+", OC: 1 },
       sizes: [{ models: 1, costs: [{ from: 1, pts: 110 }, { from: 3, pts: 130 }] }],
       coreAbilities: [],
@@ -3112,6 +3114,8 @@ Factions.register({
       category: "infantry",
       base: "40mm",
       keywords: ["Infantry", "Aeldari", "Frame", "Support Weapon", "Shadow Weaver Platform", "Asuryani"],
+      // Support Artillery : rejoint une unité de Guardian Defenders (js/regles-etendues.js)
+      retinue: { joins: [["Guardian Defenders"]], label: "Guardian Defenders" },
       stats: { M: "7\"", T: 6, Sv: "4+", W: 5, Ld: "7+", OC: 1 },
       sizes: [{ models: 1, costs: [{ from: 1, pts: 60 }] }],
       coreAbilities: [],
@@ -3294,6 +3298,8 @@ Factions.register({
       category: "infantry",
       base: "40mm",
       keywords: ["Infantry", "Aeldari", "Frame", "Support Weapon", "Vibro Cannon Platform", "Asuryani"],
+      // Support Artillery : rejoint une unité de Guardian Defenders (js/regles-etendues.js)
+      retinue: { joins: [["Guardian Defenders"]], label: "Guardian Defenders" },
       stats: { M: "7\"", T: 6, Sv: "4+", W: 5, Ld: "7+", OC: 1 },
       sizes: [{ models: 1, costs: [{ from: 1, pts: 60 }] }],
       coreAbilities: [],
@@ -3428,7 +3434,7 @@ Factions.register({
       loadout: ["ghostswords"],
       options: [
         { id: "axe", text: "Toutes les figurines de cette unité peuvent remplacer leurs ghostswords par 1 ghostaxe et 1 forceshield.",
-          replaces: ["ghostswords"], choices: [["ghostaxe", "forceshield"]] }
+          allModels: true, replaces: ["ghostswords"], choices: [["ghostaxe", "forceshield"]] }
       ],
       abilities: [
         { name: "Malevolent Souls",
@@ -3462,7 +3468,7 @@ Factions.register({
       loadout: ["wraithcannon", "close-combat-weapon"],
       options: [
         { id: "scythe", text: "Toutes les figurines de cette unité peuvent remplacer leur wraithcannon par 1 D-scythe.",
-          replaces: ["wraithcannon"], choices: [["d-scythe"]] }
+          allModels: true, replaces: ["wraithcannon"], choices: [["d-scythe"]] }
       ],
       abilities: [
         { name: "War Construct",
