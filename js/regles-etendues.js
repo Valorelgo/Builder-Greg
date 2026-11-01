@@ -12,12 +12,29 @@
      cannotBeWarlord   : true   ne peut pas être Seigneur de Guerre
      exclusiveEpic     : "Kw"   avec cette unité, aucun EPIC HERO sans
                                 le mot-clé Kw (et inversement)
+     retinue: { ledBy: [[kw…]], label }
+                                escorte : peut rejoindre une unité déjà
+                                menée par un personnage ayant ces mots-clés
+                                (une seule escorte par unité, toutes
+                                escortes confondues)
+     retinue: { joins: [[kw…]], label }
+                                variante : rejoint directement une unité
+                                ayant ces mots-clés, menée ou non
+                                (ex. Support Artillery des Aeldari)
    Détachements
      grantsKeywords → BATTLELINE   compte désormais pour le nombre
                                    d'exemplaires (Lignes)
      weaponAbilities[].to          [[mots-clés]] : unités concernées
+     weaponMods[]                  { to: [[mots-clés]], type?, A?, S?, AP?, D? } :
+                                   caractéristiques d'armes modifiées pour
+                                   les unités concernées (mots-clés gagnés
+                                   par optimisation compris)
      travellingPlayersMax          nombre d'exemplaires permis
      constraints: { type: "warlordOneOf", names: [...] }
+   Options d'équipement
+     allModels: true    tout ou rien : un seul choix (Non / l'arme),
+                        appliqué à toutes les figurines concernées
+                        (celles du type opt.model, sinon toute l'unité)
    Optimisations
      kind: "corsaire"   posée sur une unité (personnage ou non),
                         unique dans l'armée, compte dans la limite
@@ -69,6 +86,7 @@ Builder.enhEligible = function (app, u, enh, e) {
 };
 
 // Fiche effective : aptitudes d'armes limitées à certaines unités (weaponAbilities[].to)
+// et caractéristiques d'armes modifiées par un détachement (weaponMods)
 Builder.view = function (app, u, e) {
   if (!app || !app.faction || app.isCodex || !app.state) return u;
   const base = this.baseKw(app, u);
@@ -89,6 +107,17 @@ Builder.view = function (app, u, e) {
         });
       });
     }));
+    // Mots-clés gagnés par optimisation compris (ex. Destroyer Cult par l'Ankh de Destroyer)
+    const ks = this.kwSet(app, u, e);
+    Setup.selected(app).forEach(d => (d.weaponMods || []).forEach(wm => {
+      if (wm.to && !wm.to.some(alt => hasAll(ks, alt))) return;
+      v.weapons.forEach(w => {
+        if (wm.type && w.type !== wm.type) return;
+        w.profiles.forEach(p => ["A", "S", "AP", "D"].forEach(k => {
+          if (wm[k]) { p[k] = this.bump(p[k], wm[k]); (p.modded = p.modded || {})[k] = true; }
+        }));
+      });
+    }));
   }
   const src = e && this.markSource(app, u);
   const mark = src && this.markOf(app, u, e);
@@ -104,6 +133,135 @@ Builder.view = function (app, u, e) {
   });
   v._extraKw = this.extraKeywords(app, u, e);
   return v;
+};
+
+// Options « tout ou rien » (allModels) : choisies une fois, appliquées à toutes les figurines
+const baseOptLimit = Builder.optLimit;
+Builder.optLimit = function (u, opt, sizeModels, e) {
+  if (opt.allModels) return 1;
+  return baseOptLimit.call(this, u, opt, sizeModels, e);
+};
+
+const baseLoadout = Builder.loadout;
+Builder.loadout = function (app, u, e) {
+  const all = (u.options || []).filter(o => o.allModels);
+  if (!e || !e.options || !all.length) return baseLoadout.call(this, app, u, e);
+  const ms = this.models(u, this.size(u, e).models);
+  const opts = Object.assign({}, e.options);
+  all.forEach(o => {
+    const v = e.options[o.id];
+    if (!v) return;
+    const n = o.model ? (ms.find(m => m.id === o.model) || { count: 0 }).count : ms.reduce((s, m) => s + m.count, 0);
+    opts[o.id] = v.map(x => (x ? n : 0));
+  });
+  return baseLoadout.call(this, app, u, Object.assign({}, e, { options: opts }));
+};
+
+/* ---------- Escortes (retinue) ----------
+   Unité non-personnage qui rejoint une unité déjà menée par un personnage
+   donné (ex. Tomb Crawlers et Cryptothralls avec un Cryptek), ou, avec
+   retinue.joins, directement une unité donnée (ex. Support Artillery des
+   Aeldari avec des Guardian Defenders). Elle utilise le rattachement
+   existant (attachedTo) avec un 3e type, « escorte ». */
+
+const isRetinue = u => !!(u && u.retinue);
+
+// L'unité t convient-elle à cette escorte ? (renvoie l'hôte, ou rien)
+const retinueHost = (ctx, ret, t) => {
+  if (ret.joins) {
+    const tu = Builder.unit(ctx, t.unitId);
+    return tu && !isRetinue(tu) && ret.joins.some(alt => alt.every(k => Builder.has(ctx, tu, k, t))) ? t : null;
+  }
+  return Army.attached(ctx, t).find(c => {
+    const cu = Builder.unit(ctx, c.unitId);
+    return cu && !isRetinue(cu) && ret.ledBy.some(alt => alt.every(k => Builder.has(ctx, cu, k, c)));
+  });
+};
+// « unité menée par un Cryptek » ou « unité Guardian Defenders »
+const retinueNeed = ret => ret.joins ? `unité ${ret.label}` : `unité menée par un ${ret.label}`;
+
+const retinueTargets = (ctx, e) => {
+  const u = Builder.unit(ctx, e.unitId);
+  return ctx.state.units.filter(t => t.uid !== e.uid && Army.isTop(ctx, t) &&
+    !isRetinue(Builder.unit(ctx, t.unitId)) && retinueHost(ctx, u.retinue, t));
+};
+
+const baseCharType = Army.charType;
+Army.charType = function (u) { return isRetinue(u) ? "escorte" : baseCharType.call(this, u); };
+
+// Noms des unités possibles (non vide, pour que le menu de rattachement s'affiche)
+const baseCanLead = Builder.canLead;
+Builder.canLead = function (app, e) {
+  const u = this.unit(app, e.unitId);
+  if (!isRetinue(u)) return baseCanLead.call(this, app, e);
+  const names = [...new Set(retinueTargets(app, e).map(t => this.unit(app, t.unitId).name))];
+  return names.length ? names : [retinueNeed(u.retinue)];
+};
+
+const baseAttachTargets = Army.attachTargets;
+Army.attachTargets = function (ctx, e) {
+  if (!isRetinue(Builder.unit(ctx, e.unitId))) return baseAttachTargets.call(this, ctx, e);
+  const list = retinueTargets(ctx, e);
+  const cur = e.attachedTo && Builder.entry(ctx, e.attachedTo);
+  return cur && !list.includes(cur) ? [cur, ...list] : list;
+};
+
+const baseAttachBlock = Army.attachBlock;
+Army.attachBlock = function (ctx, e, t) {
+  const u = Builder.unit(ctx, e.unitId);
+  if (!isRetinue(u)) return baseAttachBlock.call(this, ctx, e, t);
+  if (!retinueHost(ctx, u.retinue, t)) return u.retinue.joins ? `pas une unité ${u.retinue.label}` : `pas menée par un ${u.retinue.label}`;
+  const other = this.attached(ctx, t).find(x => x.uid !== e.uid && isRetinue(Builder.unit(ctx, x.unitId)));
+  return other ? `déjà une escorte : ${Builder.label(ctx, other)}` : null;
+};
+
+const baseAttachControl = Army.attachControl;
+Army.attachControl = function (ctx, e, scope) {
+  const u = Builder.unit(ctx, e.unitId);
+  if (!isRetinue(u)) return baseAttachControl.call(this, ctx, e, scope);
+  const targets = this.attachTargets(ctx, e);
+  const opts = targets.map(t => {
+    const block = this.attachBlock(ctx, e, t);
+    const on = e.attachedTo === t.uid;
+    return `<option value="${t.uid}" ${on ? "selected" : ""} ${block && !on ? "disabled" : ""}>
+      ${UI.esc(Builder.label(ctx, t))}${block ? ` (${UI.esc(block)})` : ""}</option>`;
+  }).join("");
+  return `<label class="cfg-row"><span class="cfg-l">Rejoint</span>
+      <select data-change="armyAttach" data-uid="${e.uid}" data-scope="${scope}">
+        <option value="">Aucune unité</option>${opts}</select></label>
+    ${!targets.length ? `<p class="hint">Aucune ${UI.esc(retinueNeed(u.retinue))} dans la liste.</p>` : ""}`;
+};
+
+// Problèmes propres aux escortes (remplacent les messages de rattachement d'origine)
+const retinueIssues = ctx => {
+  const out = [];
+  ctx.state.units.forEach(e => {
+    const u = Builder.unit(ctx, e.unitId);
+    const t = e.attachedTo && Builder.entry(ctx, e.attachedTo);
+    if (!isRetinue(u) || !t) return;
+    const block = Army.attachBlock(ctx, e, t);
+    if (block) out.push({ msg: `${Builder.label(ctx, e)} ne peut pas rejoindre ${Builder.label(ctx, t)} : ${block}.`, uid: e.uid });
+  });
+  return out;
+};
+
+const baseIssues = Army.issues;
+Army.issues = function (ctx) {
+  const ret = new Set(ctx.state.units.filter(e => isRetinue(Builder.unit(ctx, e.unitId))).map(e => e.uid));
+  return baseIssues.call(this, ctx).filter(i => !(ret.has(i.uid) && !/embarquer/.test(i.msg))).concat(retinueIssues(ctx));
+};
+
+// « Menée par » : seulement les personnages ; l'escorte est signalée à part
+const baseLeadersOf = Builder.leadersOf;
+Builder.leadersOf = function (app, target) {
+  return baseLeadersOf.call(this, app, target).filter(x => !isRetinue(this.unit(app, x.unitId)));
+};
+
+const baseBonusBox = Army.bonusBox;
+Army.bonusBox = function (ctx, e) {
+  const esc = this.attached(ctx, e).filter(x => isRetinue(Builder.unit(ctx, x.unitId)));
+  const line = esc.length ? `<p class="cfg-led">Escortée par ${esc.map(x => `<button class="cfg-link" data-action="selEntry" data-arg="${x.uid}">${UI.esc(Builder.label(ctx, x))} ›</button>`).join(" ")}</p>` : "";
+  return line + baseBonusBox.call(this, ctx, e);
 };
 
 // Vérifications supplémentaires de la liste
@@ -132,6 +290,9 @@ Builder.validate = function (app) {
     const bad = entries.find(y => y.e !== e && this.isEpic(y.u) && !this.baseKw(app, y.u).has(u.exclusiveEpic));
     if (bad) push(`${u.name} ne peut pas être dans la même armée que ${bad.u.name} (héros épique non ${u.exclusiveEpic.toUpperCase()}).`, e.uid);
   });
+
+  // Escortes : rattachement encore valable ?
+  retinueIssues(app).forEach(i => push(i.msg, i.uid));
 
   return out;
 };
