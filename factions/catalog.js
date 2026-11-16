@@ -36,6 +36,50 @@ const FactionCatalog = [
     subtitle: "Les dynasties endormies",
     file: "necrons",
     color: "#3ee67f",
-    available: false
+    available: true
+  },
+  {
+    id: "world-eaters",
+    name: "World Eaters",
+    subtitle: "La XIIe Légion, vouée à Khorne",
+    file: "world-eaters",
+    color: "#b8222a",
+    available: true
+  },
+  {
+    id: "death-guard",
+    name: "Death Guard",
+    subtitle: "La XIVe Légion, vouée à Nurgle",
+    file: "death-guard",
+    color: "#8f9b3c",
+    available: true
   }
+];
+
+/* =========================================================
+   ARMÉES CONSULTABLES SEULEMENT — détachements, optimisations
+   et stratagèmes, sans fiches d'unités (voir js/armees.js).
+   Une ligne par armée : { id, name, file, color }
+     id    : nom de l'armée en minuscules, tirets à la place des
+             espaces, sans apostrophe (« T'au Empire » → "tau-empire")
+     file  : fichier factions/<file>.js (souvent le même que id)
+     color : facultatif, sinon celle de la liste des armées (config.js)
+   Quand une armée reçoit ses fiches d'unités, sa ligne passe
+   dans FactionCatalog ci-dessus.
+   ========================================================= */
+
+const RefCatalog = [
+  { id: "leagues-of-votann", name: "Leagues of Votann", file: "leagues-of-votann" },
+  { id: "chaos-daemons", name: "Chaos Daemons", file: "chaos-daemons" },
+  { id: "adepta-sororitas", name: "Adepta Sororitas", file: "adepta-sororitas" },
+  { id: "adeptus-custodes", name: "Adeptus Custodes", file: "adeptus-custodes" },
+  { id: "orks", name: "Orks", file: "orks" },
+  { id: "thousand-sons", name: "Thousand Sons", file: "thousand-sons" },
+  // Space Marines et chapitres : un seul fichier (règle, détachements et stratagèmes communs)
+  { id: "space-marines", name: "Space Marines", file: "adeptus-astartes" },
+  { id: "blood-angels", name: "Blood Angels", file: "adeptus-astartes" },
+  { id: "black-templars", name: "Black Templars", file: "adeptus-astartes" },
+  { id: "dark-angels", name: "Dark Angels", file: "adeptus-astartes" },
+  { id: "deathwatch", name: "Deathwatch", file: "adeptus-astartes" },
+  { id: "space-wolves", name: "Space Wolves", file: "adeptus-astartes" }
 ];
