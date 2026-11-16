@@ -7,12 +7,13 @@
    du navigateur (localStorage) et ne sont jamais envoyées sur GitHub.
    ========================================================= */
 
-const VERSION = "20261101-1915";
+const VERSION = "20261102-2230";
 const CACHE = `builder40k-${VERSION}`;
 const FILES = [
   "./",
   "index.html",
   "manifest.webmanifest",
+  "css/armees.css",
   "css/style.css",
   "css/themes.css",
   "factions/aeldari.js",
@@ -34,6 +35,7 @@ const FILES = [
   "icons/icon-512.png",
   "icons/icon-maskable-512.png",
   "js/app.js",
+  "js/armees.js",
   "js/army.js",
   "js/builder-ui.js",
   "js/builder.js",
