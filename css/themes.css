@@ -15,6 +15,13 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Oxanium";
+  src: url("../fonts/Oxanium-VariableFont_wght.ttf") format("truetype");
+  font-weight: 200 800;          /* police variable */
+  font-display: swap;
+}
+
 /* =========================================================
    CHAOS SPACE MARINES — rouge sang, titres bruts et condensés
    ========================================================= */
@@ -89,3 +96,86 @@
 :root[data-faction="aeldari"] .ov-back { background: rgba(3, 12, 13, .62); }
 :root[data-faction="aeldari"] .dp-img { background: #071011; }
 :root[data-faction="aeldari"] .mt-turn.is-opp { background: rgba(150, 90, 120, .2); border-left-color: #b07d95; }
+
+/* =========================================================
+   NECRONS — vert émeraude sur noir de tombeau, titres en Oxanium
+   ========================================================= */
+
+:root[data-faction="necrons"] {
+  --bg:      #080d0a;   /* noir verdâtre très sombre */
+  --panel:   #0e1612;
+  --panel-2: #142019;
+  --line:    #22392b;
+  --muted:   #9db5a6;
+  --gold:    #d9cf8e;   /* or terni des nobles */
+  --accent-light: #8ff2b3;
+
+  --font-display: "Oxanium", "Eurostile", "Bank Gothic", "Arial Narrow", sans-serif;
+}
+
+/* Titres : capitales légèrement espacées, aspect « gravé » */
+:root[data-faction="necrons"] .screen-title,
+:root[data-faction="necrons"] .dd-title,
+:root[data-faction="necrons"] .uc-title h1 { letter-spacing: .03em; }
+
+/* Teintes violettes écrites en dur dans style.css, remplacées par de l'émeraude */
+:root[data-faction="necrons"] .uc-head { background: color-mix(in srgb, var(--accent) 22%, var(--bg)); }
+:root[data-faction="necrons"] .st-box small,
+:root[data-faction="necrons"] .uc-meta { color: #d6f5e1; }
+:root[data-faction="necrons"] .st-box b { color: #06170d; }
+:root[data-faction="necrons"] .st-inv b { color: #e4f8eb; border-color: #e4f8eb; }
+:root[data-faction="necrons"] .wab { border-color: #2a8a52; }
+:root[data-faction="necrons"] .wtable tr.off td,
+:root[data-faction="necrons"] .wtable tr.off .wprof,
+:root[data-faction="necrons"] .wgear .off,
+:root[data-faction="necrons"] .ab.off { color: #66806f; }
+:root[data-faction="necrons"] .wtable tr.off .wab { color: #66806f; border-color: #26402f; }
+:root[data-faction="necrons"] .abr { background: rgba(62, 230, 127, .06); }
+:root[data-faction="necrons"] .mc-round,
+:root[data-faction="necrons"] .mc-tag { background: #040806; }
+:root[data-faction="necrons"] .ov-back { background: rgba(2, 6, 4, .66); }
+:root[data-faction="necrons"] .dp-img { background: #040806; }
+:root[data-faction="necrons"] .mt-turn.is-opp { background: rgba(150, 90, 120, .2); border-left-color: #b07d95; }
+
+/* =========================================================
+   WORLD EATERS — écarlate de sang séché, os blanchi en second,
+   titres bruts en Big Shoulders (comme les Chaos Space Marines)
+   Pour passer au gris métallique : remplacer les teintes « os »
+   (--gold, --muted, .st-box small, .uc-meta, .st-inv b) par
+   #b9bec4 / #a3a7ac / #e3e6e9.
+   ========================================================= */
+
+:root[data-faction="world-eaters"] {
+  --bg:      #140a09;   /* sang séché, presque noir */
+  --panel:   #1f100e;
+  --panel-2: #2b1613;
+  --line:    #522621;
+  --muted:   #c2b49c;   /* os terni */
+  --gold:    #e6d9b8;   /* os blanchi : points, éléments mis en valeur */
+  --accent-light: #e86a5e;
+
+  --font-display: "Big Shoulders", "Impact", "Arial Narrow", sans-serif;
+}
+
+:root[data-faction="world-eaters"] .screen-title,
+:root[data-faction="world-eaters"] .dd-title,
+:root[data-faction="world-eaters"] .uc-title h1 { letter-spacing: .02em; }
+
+/* Teintes violettes écrites en dur dans style.css, remplacées par sang et os */
+:root[data-faction="world-eaters"] .uc-head { background: color-mix(in srgb, var(--accent) 45%, var(--bg)); }
+:root[data-faction="world-eaters"] .st-box small,
+:root[data-faction="world-eaters"] .uc-meta { color: #efe5cc; }
+:root[data-faction="world-eaters"] .st-box b { color: #2a0f0c; }
+:root[data-faction="world-eaters"] .st-inv b { color: #f1e8d0; border-color: #f1e8d0; }
+:root[data-faction="world-eaters"] .wab { border-color: #8a2e27; }
+:root[data-faction="world-eaters"] .wtable tr.off td,
+:root[data-faction="world-eaters"] .wtable tr.off .wprof,
+:root[data-faction="world-eaters"] .wgear .off,
+:root[data-faction="world-eaters"] .ab.off { color: #7d6b5e; }
+:root[data-faction="world-eaters"] .wtable tr.off .wab { color: #7d6b5e; border-color: #523028; }
+:root[data-faction="world-eaters"] .abr { background: rgba(184, 34, 42, .09); }
+:root[data-faction="world-eaters"] .mc-round,
+:root[data-faction="world-eaters"] .mc-tag { background: #0d0505; }
+:root[data-faction="world-eaters"] .ov-back { background: rgba(12, 3, 3, .64); }
+:root[data-faction="world-eaters"] .dp-img { background: #0c0505; }
+:root[data-faction="world-eaters"] .mt-turn.is-opp { background: rgba(80, 90, 120, .22); border-left-color: #7d8bb0; }
