@@ -55,7 +55,8 @@ const Labels = {
     "Mounted": "Monté",
     "Transport": "Transport",
     "Dedicated Transport": "Transport assigné",
-    "Aircraft": "Aéronef"
+    "Aircraft": "Aéronef",
+    "Swarm": "Nuée"
   },
   // Marques du Chaos affichées en français quand le nom diffère
   mark: {
@@ -71,12 +72,16 @@ const STEPS = [
 ];
 
 // Catégories d'unités, dans l'ordre d'affichage du builder
+// (une catégorie sans unité dans la faction n'est pas affichée)
 const UnitCategories = [
   { id: "epic-infantry",       label: "Héros d'infanterie épiques" },
   { id: "epic-monster",        label: "Héros monstres épiques" },
+  { id: "epic-mounted",        label: "Héros montés épiques" },
+  { id: "epic-vehicle",        label: "Héros véhicules épiques" },
   { id: "char-infantry",       label: "Personnages d'infanterie" },
   { id: "char-monster",        label: "Personnages monstres" },
   { id: "char-mounted",        label: "Personnages montés" },
+  { id: "char-vehicle",        label: "Personnages véhicules" },
   { id: "battleline",          label: "Ligne" },
   { id: "infantry",            label: "Infanterie" },
   { id: "dedicated-transport", label: "Transports assignés" },
@@ -84,6 +89,7 @@ const UnitCategories = [
   { id: "monsters",            label: "Monstres" },
   { id: "walkers",             label: "Marcheurs" },
   { id: "beasts",              label: "Bêtes" },
+  { id: "swarms",              label: "Nuées" },
   { id: "mounted",             label: "Montés" },
   { id: "transport",           label: "Transports" },
   { id: "vehicles",            label: "Véhicules" }

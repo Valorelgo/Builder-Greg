@@ -64,21 +64,30 @@ const Home = {
     return `<span class="lr-sub">${UI.esc(dets)}${p ? `<span class="lr-paint" title="Figurines de la liste déjà peintes">${p.pct} % peinte${p.ptsPct != null ? ` ${Collection.ptsTag(p.ptsPct, "Points de la liste déjà peints")}` : ""}</span>` : ""}</span>`;
   },
 
-  // Résumé de la collection, par faction (points si la faction est chargée)
+  // Résumé de la collection, par faction (points si la faction est chargée),
+  // avec les prochains achats de chaque faction
   collPanel() {
     Collection.ensureLoaded(App);
-    const fids = FactionCatalog.filter(f => Collection.has(f.id));
+    const fids = Collection.ordered().filter(f => Collection.has(f.id) || Collection.shopFor(f.id).length);
     if (!fids.length) return `<div class="empty"><p>Note les figurines que tu possèdes et ce qui est peint.</p>
       <button class="btn btn-primary" data-action="openCollection">Saisir ma collection</button></div>`;
     return fids.map(f => {
       const units = Collection.unitsOf(f.id);
       const s = units ? Collection.summary(units, f.id) : Collection.rawTotals(f.id);
-      return `<button class="hc-card" style="--fc:${f.color}" data-action="openCollection" data-arg="${f.id}">
+      const shop = Collection.shopFor(f.id);
+      const card = `<button class="hc-card${shop.length ? " has-shop" : ""}" style="--fc:${f.color}" data-action="openCollection" data-arg="${f.id}">
         <span class="hc-name">${UI.esc(f.name)}</span>
-        <span class="hc-pct"><b>${s.pct} %</b> peinte${units ? ` ${Collection.ptsTag(s.ptsPct)}` : ""}</span>
+        ${s.owned ? `<span class="hc-pct"><b>${s.pct} %</b> peinte${units ? ` ${Collection.ptsTag(s.ptsPct)}` : ""}</span>
         <span class="co-bar"><span style="width:${s.pct}%"></span></span>
-        <span class="hc-sub">${s.painted} / ${s.owned} figurines${units ? ` · ${s.ptsPainted} / ${s.ptsOwned} pts` : ""}</span>
+        <span class="hc-sub">${s.painted} / ${s.owned} figurines${units ? ` · ${s.ptsPainted} / ${s.ptsOwned} pts` : ""}</span>`
+        : `<span class="hc-sub">Aucune figurine saisie</span>`}
+        ${Collection.isFav(f.id) ? `<span class="hc-fav" aria-label="Favorite">★</span>` : ""}
       </button>`;
+      if (!shop.length) return card;
+      return card + `<div class="hc-shop" style="--fc:${f.color}" data-action="openCollShop" data-arg="${f.id}" role="button" tabindex="0" title="Ouvrir le shopping ${UI.esc(f.name)}">
+        <span class="hc-shop-t">🛒 À acheter</span><ol>${shop.slice(0, 3).map(x =>
+          `<li>${UI.esc(Collection.shopLabel(x))}${x.unitId ? ` <small>× ${x.qty}</small>` : ""}</li>`).join("")}</ol>
+        ${shop.length > 3 ? `<small class="hc-sub">et ${shop.length - 3} autre${shop.length > 4 ? "s" : ""}</small>` : ""}</div>`;
     }).join("") + `<button class="btn btn-s hc-more" data-action="openCollection">Gérer ma collection</button>`;
   },
 
@@ -169,6 +178,8 @@ const Home = {
                   <span>${this.date(g.date)}</span>
                   ${g.oppName ? `<span>face à ${UI.esc(g.oppName)}</span>` : ""}
                   ${role ? `<span>${role}</span>` : ""}
+                  ${g.play && g.play.first ? `<span>${g.play.first === "me" ? "1er joueur" : "2e joueur"}</span>` : ""}
+                  ${g.end ? `<span class="g-end">${UI.esc(History.endLabel(g))}</span>` : ""}
                 </div>
               </div>
               <span class="g-score">${score}</span>

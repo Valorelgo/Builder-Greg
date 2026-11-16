@@ -6,8 +6,9 @@ const History = {
 
   // Filtres de la session (non enregistrés)
   filters(app) {
+    if (app.state.hist && !app.state.hist.order) app.state.hist.order = [];
     return app.state.hist || (app.state.hist = { myFaction: "", oppFaction: "", results: [], myDispos: [], oppDispos: [],
-                                                 opp: "", roles: [], list: "", from: "", to: "" });
+                                                 opp: "", roles: [], order: [], list: "", from: "", to: "" });
   },
 
   active(f) {
@@ -15,6 +16,10 @@ const History = {
   },
 
   day(iso) { return (iso || "").slice(0, 10); },
+
+  // Ordre de jeu : "premier" / "second" (null si la partie n'a pas commencé)
+  order(g) { const f = g.play && g.play.first; return f === "me" ? "premier" : f === "opp" ? "second" : null; },
+  orderLabel(k) { return k === "premier" ? "J'ai joué en premier" : k === "second" ? "J'ai joué en second" : k; },
 
   apply(app) {
     const f = this.filters(app);
@@ -28,6 +33,7 @@ const History = {
         (!f.oppDispos.length || f.oppDispos.includes(g.oppDisposition)) &&
         (!f.opp || (g.oppName || "") === f.opp) &&
         (!f.roles.length || f.roles.includes(g.role)) &&
+        (!(f.order || []).length || f.order.includes(History.order(g))) &&
         (!f.list || g.listId === f.list) &&
         (!f.from || this.day(g.date) >= f.from) &&
         (!f.to || this.day(g.date) <= f.to));
@@ -98,6 +104,16 @@ const History = {
         <td><div class="htab-pct"><b>${x.r.pv} %</b>${this.bar(x.r)}</div></td></tr>`).join("")}</tbody></table></div>`;
   },
 
+  // Fin anticipée : « Abandon adverse (round 3) », « Table rase subie (round 2) »…
+  endLabel(g, oppName) {
+    const e = g.end;
+    if (!e) return "";
+    const what = e.why === "table-rase"
+      ? (e.by === "me" ? "Table rase subie" : "Table rase infligée")
+      : (e.by === "me" ? "J'ai abandonné" : `Abandon ${oppName ? `de ${oppName}` : "adverse"}`);
+    return `${what}${e.round ? ` (round ${e.round})` : ""}`;
+  },
+
   uniq(arr) { return [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b)); },
 
   /* ---------- Rendu ---------- */
@@ -136,6 +152,7 @@ const History = {
       <label class="hf"><span>Liste jouée</span>${this.select("list", lists, f, "Toutes")}</label>
       <div class="hf"><span>Résultat</span>${this.chips("results", [["victoire", "Victoire"], ["defaite", "Défaite"], ["egalite", "Égalité"], ["en-cours", "En cours"]], f)}</div>
       <div class="hf"><span>Mon rôle</span>${this.chips("roles", [["attaquant", "Attaquant"], ["defenseur", "Défenseur"]], f)}</div>
+      <div class="hf"><span>Ordre de jeu</span>${this.chips("order", [["premier", "En premier"], ["second", "En second"]], f)}</div>
       <div class="hf"><span>Ma disposition</span>${this.chips("myDispos", dispo, f)}</div>
       <div class="hf"><span>Disposition adverse</span>${this.chips("oppDispos", dispo, f)}</div>
       <div class="hf"><span>Période</span>
@@ -189,6 +206,8 @@ const History = {
         <dt>Ma liste</dt><dd>${UI.esc(g.listName || "")} · ${g.points || ""} pts</dd>
         <dt>Dispositions</dt><dd>${UI.dispoChip(g.myDisposition)} <span class="muted">contre</span> ${UI.dispoChip(g.oppDisposition)}</dd>
         <dt>Mon rôle</dt><dd>${role}</dd>
+        ${g.end ? `<dt>Fin de partie</dt><dd>${UI.esc(History.endLabel(g, g.oppName))}</dd>` : ""}
+        <dt>Ordre de jeu</dt><dd>${History.order(g) ? History.orderLabel(History.order(g)) : "Non renseigné"}</dd>
         <dt>Missions</dt><dd>${UI.esc(g.myMission || "?")} <span class="muted">/</span> ${UI.esc(g.oppMission || "?")}</dd>
         ${g.deployment ? `<dt>Mise en place</dt><dd>${UI.esc(Deployments.name(g.myDisposition, g.oppDisposition, g.deployment))}</dd>` : ""}
         ${me ? `<dt>Mon score</dt><dd>${me.prim} primaire · ${me.sec} secondaire${me.paint ? ` · ${me.paint} peinture` : ""}</dd>
@@ -220,6 +239,7 @@ Screens.history = {
         <div class="hb-grid">
           ${History.table("Contre chaque faction", byFaction, k => Home.factionChip(k))}
           ${History.table("Contre chaque joueur", byOpp)}
+          ${History.table("Selon l'ordre de jeu", History.breakdown(games, g => History.order(g), k => History.orderLabel(k)))}
           ${byMine.length > 1 ? History.table("Avec chacune de mes factions", byMine, k => Home.factionChip(k)) : ""}
           ${History.table("Dispositions : la mienne contre la sienne", History.breakdown(games, g => g.myDisposition && g.oppDisposition ? `${g.myDisposition}|${g.oppDisposition}` : null),
               k => k.includes("|") ? `${UI.dispoChip(k.split("|")[0])} <span class="muted">vs</span> ${UI.dispoChip(k.split("|")[1])}` : UI.esc(k))}

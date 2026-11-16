@@ -2,7 +2,10 @@
    COLLECTION — figurines possédées et peintes, par faction
    Store.data.collection = {
      factions: { [factionId]: { [unitId]: { owned, painted } } },
-     log: [ { id, date, factionId, text, auto } ]   ← journal de peinture
+     log: [ { id, date, factionId, text, auto } ],  ← journal de peinture
+     favs: [ factionId… ],                            ← factions jouées en priorité, dans l'ordre choisi
+     shopping: [ { id, date, factionId, unitId, text, qty } ]  ← achats à faire ; l'ordre du tableau
+                                                                 donne la priorité au sein de chaque faction
    }
    Affichée sur l'écran « Ma collection » et dans le builder (jamais en partie).
    ========================================================= */
@@ -12,7 +15,74 @@ const Collection = {
   data() {
     const d = Store.data;
     if (!d.collection) d.collection = { factions: {}, log: [] };
-    return d.collection;
+    const c = d.collection;
+    if (!Array.isArray(c.favs)) c.favs = [];
+    if (!Array.isArray(c.shopping)) c.shopping = [];
+    return c;
+  },
+
+  /* ---------- Factions favorites ---------- */
+
+  favs() { return this.data().favs.filter(id => FactionCatalog.some(f => f.id === id)); },
+  isFav(id) { return this.data().favs.includes(id); },
+  toggleFav(id) {
+    const f = this.data().favs, i = f.indexOf(id);
+    if (i >= 0) f.splice(i, 1); else f.push(id);
+  },
+  // Déplace une favorite d'un cran (d = -1 vers le haut, +1 vers le bas)
+  moveFav(id, d) {
+    const f = this.data().favs, i = f.indexOf(id), j = i + d;
+    if (i < 0 || j < 0 || j >= f.length) return;
+    [f[i], f[j]] = [f[j], f[i]];
+  },
+  // Catalogue des factions : favorites d'abord (dans leur ordre), puis les autres
+  ordered() {
+    const favs = this.favs();
+    return favs.map(id => FactionCatalog.find(f => f.id === id))
+      .concat(FactionCatalog.filter(f => !favs.includes(f.id)));
+  },
+
+  /* ---------- Shopping ---------- */
+
+  shopping() { return this.data().shopping; },
+  shopFor(fid) { return this.shopping().filter(x => x.factionId === fid); },
+  shopOf(fid, unitId) { return this.shopping().filter(x => x.factionId === fid && x.unitId === unitId); },
+  shopQty(fid, unitId) { return this.shopOf(fid, unitId).reduce((n, x) => n + (x.qty || 0), 0); },
+  shopAdd(fid, unitId, qty, text) {
+    const item = { id: Store.newId("s"), date: new Date().toISOString(), factionId: fid, unitId: unitId || null,
+                   qty: unitId ? Math.max(1, qty || 1) : 0, text: text || "" };
+    this.shopping().push(item);
+    return item;
+  },
+  // Monte ou descend une entrée d'un cran parmi celles de sa faction
+  moveShop(id, d) {
+    const l = this.shopping(), i = l.findIndex(x => x.id === id);
+    if (i < 0) return;
+    let j = i + d;
+    while (j >= 0 && j < l.length && l[j].factionId !== l[i].factionId) j += d;
+    if (j < 0 || j >= l.length) return;
+    [l[i], l[j]] = [l[j], l[i]];
+  },
+  // Des figurines de cette unité viennent d'entrer dans la collection : on les déduit du shopping,
+  // en commençant par l'entrée la plus prioritaire. Renvoie les noms des entrées soldées.
+  shopReceive(fid, unitId, n) {
+    const done = [];
+    if (n <= 0) return done;
+    const l = this.shopping();
+    for (const x of l.slice()) {
+      if (n <= 0) break;
+      if (x.factionId !== fid || x.unitId !== unitId) continue;
+      const take = Math.min(n, x.qty);
+      x.qty -= take; n -= take;
+      if (x.qty <= 0) { l.splice(l.indexOf(x), 1); done.push(x); }
+    }
+    return done;
+  },
+  shopLabel(x) {
+    if (!x.unitId) return x.text;
+    const fu = this.unitsOf(x.factionId);
+    const u = fu && fu.find(v => v.id === x.unitId);
+    return u ? u.name : x.unitId;
   },
 
   of(factionId) { return this.data().factions[factionId] || {}; },
@@ -132,7 +202,9 @@ const Collection = {
   // Charge en arrière-plan les factions de la collection (pour les points), puis redessine
   ensureLoaded(app) {
     if (this._loading) return;
-    const todo = Object.keys(this.data().factions).filter(fid => !Factions.get(fid) && FactionCatalog.some(f => f.id === fid));
+    const ids = new Set(Object.keys(this.data().factions));
+    this.shopping().forEach(x => { if (x.unitId) ids.add(x.factionId); });
+    const todo = [...ids].filter(fid => !Factions.get(fid) && FactionCatalog.some(f => f.id === fid));
     if (!todo.length) return;
     this._loading = true;
     Promise.all(todo.map(async fid => {
@@ -180,8 +252,52 @@ const CollectionScreen = {
     const ctx = { faction, toast: m => app.toast(m),
                   state: { units: [], points: 2000, detachments: faction.detachments.map(d => d.id) } };
     await Loader.loadExtras(ctx);
-    app.state.coll = { factionId: entry.id, ctx };
+    app.state.coll = { factionId: entry.id, ctx, tab: app._collTab || (app.state.coll && app.state.coll.tab) || "units" };
+    app._collTab = null;
     document.documentElement.style.setProperty("--accent", entry.color);
+  },
+
+  // Onglet « Shopping » de la faction ouverte, par ordre de priorité
+  shopPane(app, units) {
+    const c = app.state.coll, fid = c.factionId;
+    const list = Collection.shopFor(fid);
+    const opts = UnitCategories.map(cat => {
+      const us = units.filter(u => u.category === cat.id);
+      return us.length ? `<optgroup label="${UI.esc(cat.label)}">${us.map(u =>
+        `<option value="${u.id}" data-step="${Collection.step(u)}">${UI.esc(u.name)}</option>`).join("")}</optgroup>` : "";
+    }).join("");
+    const form = `<div class="co-shopadd">
+        <select id="shop-unit" data-change="collShopPick" aria-label="Unité">
+          <option value="">— Autre achat (texte libre) —</option>${opts}</select>
+        <label class="co-shopqty">Fig. <input id="shop-qty" type="number" min="1" inputmode="numeric" value="1"></label>
+        <input id="shop-text" type="text" placeholder="Note (boîte, peinture, décor…)" maxlength="120">
+        <button class="btn btn-primary btn-s" data-action="collShopAdd">Ajouter</button>
+      </div>
+      <p class="hint co-shophint">Quand tu ajoutes des figurines possédées, elles sont retirées d'ici automatiquement (en commençant par l'entrée la plus prioritaire).</p>`;
+    if (!list.length) return form + `<div class="empty"><p>Rien à acheter pour cette faction pour l'instant.</p></div>`;
+    const items = list.map((x, i) => {
+      const f = FactionCatalog.find(v => v.id === x.factionId) || { color: "var(--line)" };
+      const label = Collection.shopLabel(x);
+      const own = x.unitId ? Collection.get(x.factionId, x.unitId).owned : 0;
+      const sub = [x.unitId ? `déjà ${own} possédée${own > 1 ? "s" : ""}` : "", x.unitId && x.text ? UI.esc(x.text) : ""].filter(Boolean).join(" · ");
+      return `<li class="co-shop" style="--fc:${f.color}">
+        <span class="co-rank">${i + 1}</span>
+        <span class="co-shopmain">${x.unitId && Builder.unit(c.ctx, x.unitId)
+            ? `<button class="co-uname" data-action="collCard" data-arg="${x.unitId}" title="Voir la fiche">${UI.esc(label)}</button>`
+            : `<b>${UI.esc(label)}</b>`}
+          ${sub ? `<small>${sub}</small>` : ""}</span>
+        ${x.unitId ? `<span class="co-step co-shopn">
+            <button data-action="collShopQty" data-arg="${x.id}|-1" ${x.qty <= 1 ? "disabled" : ""} aria-label="Moins">−</button>
+            <b>${x.qty}</b>
+            <button data-action="collShopQty" data-arg="${x.id}|1" aria-label="Plus">+</button></span>` : `<span></span>`}
+        <span class="co-shoptools">
+          <button class="co-mv" data-action="collShopMove" data-arg="${x.id}|-1" ${i === 0 ? "disabled" : ""} aria-label="Plus prioritaire">▲</button>
+          <button class="co-mv" data-action="collShopMove" data-arg="${x.id}|1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Moins prioritaire">▼</button>
+          ${x.unitId ? `<button class="co-mv co-got" data-action="collShopGot" data-arg="${x.id}" title="Acheté : ajouter à la collection">✓</button>` : ""}
+          <button class="co-mv" data-action="collShopDel" data-arg="${x.id}" aria-label="Supprimer">✕</button>
+        </span></li>`;
+    }).join("");
+    return form + `<ol class="co-shoplist">${items}</ol>`;
   },
 
   units(ctx) {
@@ -201,16 +317,28 @@ Screens.collection = {
 
     // Colonne de gauche : une carte par faction ; celle ouverte montre son bilan et son journal
     Collection.ensureLoaded(app);
-    const facCards = FactionCatalog.map(f => {
+    const favs = Collection.favs();
+    const facCards = Collection.ordered().map(f => {
       const open = f.id === fid, avail = f.available !== false;
+      const fi = favs.indexOf(f.id), fav = fi >= 0;
       const fu = Collection.unitsOf(f.id);
       const t = fu ? Collection.summary(fu, f.id) : Collection.rawTotals(f.id);
+      const nShop = Collection.shopFor(f.id).length;
       const head = `<button class="co-fcard ${open ? "is-open" : ""}" style="--fc:${f.color}" ${avail ? `data-action="collFaction" data-arg="${f.id}"` : "disabled"}>
           <span class="co-fname">${UI.esc(f.name)}</span>
           <span class="co-fsub">${!avail ? "Bientôt disponible" : t.owned ? `${t.pct} % peinte · ${t.painted}/${t.owned} fig.${fu ? ` ${Collection.ptsTag(t.ptsPct)}` : ""}` : "Aucune figurine saisie"}</span>
-          ${t.owned ? `<span class="co-bar"><span style="width:${t.pct}%"></span></span>` : ""}</button>`;
-      if (!open) return head;
-      return head + `<div class="co-fdetail">
+          ${t.owned ? `<span class="co-bar"><span style="width:${t.pct}%"></span></span>` : ""}
+          ${nShop ? `<span class="co-fshop">🛒 ${nShop} achat${nShop > 1 ? "s" : ""} prévu${nShop > 1 ? "s" : ""}</span>` : ""}</button>`;
+      const tools = `<span class="co-ftools">
+          <button class="co-star ${fav ? "is-on" : ""}" data-action="collFav" data-arg="${f.id}" aria-pressed="${fav}"
+            title="${fav ? "Retirer des favorites" : "Mettre en favorite (en tête de liste)"}">${fav ? "★" : "☆"}</button>
+          ${fav ? `<button class="co-mv" data-action="collFavMove" data-arg="${f.id}|-1" ${fi === 0 ? "disabled" : ""} aria-label="Monter">▲</button>
+            <button class="co-mv" data-action="collFavMove" data-arg="${f.id}|1" ${fi === favs.length - 1 ? "disabled" : ""} aria-label="Descendre">▼</button>` : ""}
+        </span>`;
+      const sep = favs.length && fi === favs.length - 1 ? " is-last-fav" : "";
+      const card = `<div class="co-fwrap${fav ? " is-fav" : ""}${open ? "" : sep}">${head}${tools}</div>`;
+      if (!open) return card;
+      return card + `<div class="co-fdetail${sep}">
         <div class="co-big"><b>${s.pct} %</b><span>des figurines peintes</span></div>
         <div class="co-big co-big-pts"><b>${s.ptsPct} %</b><span>des points peints</span></div>
         <dl class="co-sum">
@@ -228,45 +356,86 @@ Screens.collection = {
       </div>`;
     }).join("");
 
-    const rows = UnitCategories.map(cat => {
-      const us = units.filter(u => u.category === cat.id);
-      if (!us.length) return "";
-      return `<h3 class="co-cat">${UI.esc(cat.label)}</h3>` + us.map(u => {
+    // Unités possédées en haut, par catégorie ; les autres en bas, dans un bloc « Non possédées »
+    // (une catégorie peut donc apparaître deux fois ; le bloc disparaît quand tout est possédé)
+    const row = u => {
         const r = Collection.get(fid, u.id);
         const pts = Collection.points(u, r.owned);
         const n = Collection.step(u), max = Collection.maxOwned(u);
         const epic = max === 1;
+        const inShop = Collection.shopQty(fid, u.id);
         const btn = (field, d, dis, label) => `<button data-action="collStep" data-arg="${u.id}|${field}|${d}" ${dis ? "disabled" : ""}>${label}</button>`;
         const input = field => `<input type="number" min="0" inputmode="numeric" value="${r[field]}" data-change="collSet" data-unit="${u.id}" data-field="${field}">`;
         const owned = `<span class="co-step">${btn("owned", -n, r.owned < 1, n > 1 ? `−${n}` : "−")}${input("owned")}${btn("owned", n, r.owned + n > max, n > 1 ? `+${n}` : "+")}</span>`;
         const painted = `<span class="co-step">${btn("painted", -1, !r.painted, "−")}${input("painted")}${btn("painted", 1, r.painted >= r.owned, "+")}
           ${n > 1 ? btn("painted", n, r.painted >= r.owned, `+${n}`) : ""}</span>`;
         return `<div class="co-row ${r.owned ? "" : "is-none"}">
-          <div class="co-name"><b>${UI.esc(u.name)}</b><small>${epic ? "Héros épique · 1 exemplaire" : `par ${u.sizes.map(x => x.models).join(" ou ")} fig.`}${u._faction ? ` · ${UI.esc(u._faction)}` : ""}</small></div>
+          <div class="co-name"><button class="co-uname" data-action="collCard" data-arg="${u.id}" title="Voir la fiche">${UI.esc(u.name)}</button><small>${epic ? "Héros épique · 1 exemplaire" : `par ${u.sizes.map(x => x.models).join(" ou ")} fig.`}${u._faction ? ` · ${UI.esc(u._faction)}` : ""}</small>
+            <span class="co-shopline">${inShop ? `<span class="co-inshop">🛒 ${inShop} à acheter</span>` : ""}
+              ${epic && (r.owned || inShop) ? "" : `<button class="co-addshop" data-action="collShopQuick" data-arg="${u.id}" title="Ajouter ${n} figurine${n > 1 ? "s" : ""} au shopping">+ shopping</button>`}</span></div>
           <div class="co-col"><span class="co-l">Possédées</span>${owned}</div>
           <div class="co-col"><span class="co-l">Peintes</span>${painted}</div>
           <div class="co-pts">${pts ? `${pts} pts` : "—"}${r.owned ? `<div class="co-bar"><span style="width:${Math.round(r.painted / r.owned * 100)}%"></span></div>` : ""}</div>
         </div>`;
-      }).join("");
+    };
+    const byCat = list => UnitCategories.map(cat => {
+      const us = list.filter(u => u.category === cat.id);
+      return us.length ? `<h3 class="co-cat">${UI.esc(cat.label)}</h3>` + us.map(row).join("") : "";
     }).join("");
+    const mine = units.filter(u => Collection.get(fid, u.id).owned > 0);
+    const others = units.filter(u => !(Collection.get(fid, u.id).owned > 0));
+    const rows = (mine.length ? byCat(mine)
+        : `<p class="hint co-none">Aucune figurine saisie pour cette faction : augmente « Possédées » sur une unité ci-dessous pour la faire remonter ici.</p>`) +
+      (others.length ? `<div class="co-unowned"><h2 class="co-unowned-h">Non possédées <span class="pill">${others.length}</span></h2>${byCat(others)}</div>` : "");
 
     return `<section class="screen screen-coll">
       <aside class="co-side" data-pane="co-side">${facCards}
         <p class="hint co-help">Les points comptent la meilleure combinaison d'effectifs possible avec tes figurines, sans équipement payant.</p></aside>
-      <div class="co-main" data-pane="co-main"><h2 class="co-title" style="--fc:${(FactionCatalog.find(f => f.id === fid) || {}).color}">${UI.esc(ctx.faction.name)}</h2>${rows}</div>
+      <div class="co-main" data-pane="co-main">
+        <div class="co-head"><h2 class="co-title" style="--fc:${(FactionCatalog.find(f => f.id === fid) || {}).color}">${UI.esc(ctx.faction.name)}</h2>
+          <div class="co-tabs" role="tablist">
+            <button role="tab" class="${c.tab !== "shop" ? "is-on" : ""}" aria-selected="${c.tab !== "shop"}" data-action="collTab" data-arg="units">Figurines</button>
+            <button role="tab" class="${c.tab === "shop" ? "is-on" : ""}" aria-selected="${c.tab === "shop"}" data-action="collTab" data-arg="shop">Shopping${Collection.shopFor(fid).length ? ` <span class="co-count">${Collection.shopFor(fid).length}</span>` : ""}</button>
+          </div></div>
+        ${c.tab === "shop" ? CollectionScreen.shopPane(app, units) : rows}</div>
     </section>`;
   },
   actions() { return ""; },
   back() { return { label: "Retour à l'accueil", action: "goHome" }; }
 };
 
+/* Fiche d'une unité, consultée depuis la collection ou le shopping (lecture seule) */
+Overlays.collCard = function (app) {
+  const c = app.state.coll, u = c && c.cardId && Builder.unit(c.ctx, c.cardId);
+  if (!u) return "";
+  const r = Collection.get(c.factionId, u.id), inShop = Collection.shopQty(c.factionId, u.id);
+  const info = [`${r.owned} possédée${r.owned > 1 ? "s" : ""}`, r.owned ? `${r.painted} peinte${r.painted > 1 ? "s" : ""}` : "",
+                inShop ? `🛒 ${inShop} à acheter` : ""].filter(Boolean).join(" · ");
+  return this.wrap(`
+    <div class="ov-head"><div class="lv-title"><h2>${UI.esc(u.name)}</h2><span class="muted">${UI.esc(c.ctx.faction.name)} · ${info}</span></div>
+      <span class="spacer"></span><button class="btn btn-s" data-action="closeOverlay">Fermer</button></div>
+    <div class="li-card co-card">${BuilderUI.card(c.ctx, u, null, true)}</div>`, "ov-full");
+};
+
 const CollectionActions = {
+  collCard(unitId) {
+    this.state.coll.cardId = unitId;
+    this.state.overlay = "collCard";
+    this.render();
+  },
+
   async openCollection(arg) {
     const fid = arg || (this.state.coll && this.state.coll.factionId) || (Store.data.lists[0] && Store.data.lists[0].factionId) || "emperors-children";
     try { await CollectionScreen.load(this, fid); }
     catch (e) { this.toast("Impossible de charger la faction."); return; }
     this.state.screen = "collection";
     this.render({ resetScroll: true });
+  },
+
+  // Depuis l'accueil : ouvre directement l'onglet Shopping de la faction
+  openCollShop(fid) {
+    this._collTab = "shop";
+    return CollectionActions.openCollection.call(this, fid);
   },
 
   async collFaction(id) {
@@ -280,13 +449,100 @@ const CollectionActions = {
     const c = this.state.coll, fid = c.factionId;
     const u = Builder.unit(c.ctx, unitId);
     const r = Collection.get(fid, unitId);
-    const before = r.painted;
+    const before = r.painted, ownedBefore = r.owned;
     if (field === "owned") Collection.set(fid, unitId, Math.min(value, Collection.maxOwned(u)), r.painted);
     else Collection.set(fid, unitId, r.owned, value);
-    const after = Collection.get(fid, unitId).painted;
-    Collection.logPainted(fid, u, after - before);
+    const now = Collection.get(fid, unitId);
+    Collection.logPainted(fid, u, now.painted - before);
+    const done = Collection.shopReceive(fid, unitId, now.owned - ownedBefore);
     Store.save();
     this.render();
+    if (done.length) this.toast(`${u.name} retiré du shopping.`);
+  },
+
+  collTab(tab) {
+    this.state.coll.tab = tab === "shop" ? "shop" : "units";
+    this.render({ resetScroll: true });
+  },
+
+  collFav(id) {
+    Collection.toggleFav(id);
+    Store.save();
+    this.render();
+  },
+
+  collFavMove(arg) {
+    const [id, d] = arg.split("|");
+    Collection.moveFav(id, Number(d));
+    Store.save();
+    this.render();
+  },
+
+  // Choix d'une unité dans le formulaire : la quantité proposée est la taille d'achat de l'unité
+  collShopPick(value, el) {
+    const opt = el.selectedOptions[0], q = document.getElementById("shop-qty");
+    if (q) q.value = value && opt ? opt.dataset.step : 1;
+  },
+
+  collShopAdd() {
+    const sel = document.getElementById("shop-unit"), q = document.getElementById("shop-qty"), t = document.getElementById("shop-text");
+    const unitId = sel ? sel.value : "", text = t ? t.value.trim() : "";
+    if (!unitId && !text) { this.toast("Choisis une unité ou écris ce qu'il faut acheter."); return; }
+    Collection.shopAdd(this.state.coll.factionId, unitId, parseInt(q && q.value, 10) || 1, text);
+    Store.save();
+    this.render();
+  },
+
+  // « + shopping » sur une ligne de figurines : ajoute une tranche d'achat (ou complète l'entrée existante)
+  collShopQuick(unitId) {
+    const fid = this.state.coll.factionId, u = Builder.unit(this.state.coll.ctx, unitId);
+    const n = Collection.step(u), ex = Collection.shopOf(fid, unitId)[0];
+    if (ex) ex.qty += n; else Collection.shopAdd(fid, unitId, n, "");
+    Store.save();
+    this.render();
+    this.toast(`${u.name} : ${Collection.shopQty(fid, unitId)} figurine${Collection.shopQty(fid, unitId) > 1 ? "s" : ""} dans le shopping.`);
+  },
+
+  collShopQty(arg) {
+    const [id, d] = arg.split("|");
+    const x = Collection.shopping().find(v => v.id === id);
+    if (!x) return;
+    x.qty = Math.max(1, x.qty + Number(d));
+    Store.save();
+    this.render();
+  },
+
+  collShopMove(arg) {
+    const [id, d] = arg.split("|");
+    Collection.moveShop(id, Number(d));
+    Store.save();
+    this.render();
+  },
+
+  collShopDel(id) {
+    const l = Collection.shopping(), i = l.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const [x] = l.splice(i, 1);
+    Store.save();
+    this.render();
+    this.toast("Retiré du shopping.", () => { l.splice(i, 0, x); Store.save(); this.render(); });
+  },
+
+  // « Acheté » : les figurines passent dans la collection (ce qui solde l'entrée du shopping)
+  collShopGot(id) {
+    const x = Collection.shopping().find(v => v.id === id);
+    if (!x || !x.unitId) return;
+    const units = Collection.unitsOf(x.factionId);
+    const u = units && units.find(v => v.id === x.unitId);
+    if (!u) return;
+    const r = Collection.get(x.factionId, x.unitId);
+    const owned = Math.min(r.owned + x.qty, Collection.maxOwned(u));
+    Collection.set(x.factionId, x.unitId, owned, r.painted);
+    const l = Collection.shopping();
+    l.splice(l.indexOf(x), 1);
+    Store.save();
+    this.render();
+    this.toast(`${u.name} : ${owned} possédée${owned > 1 ? "s" : ""}.`);
   },
 
   collStep(arg) {

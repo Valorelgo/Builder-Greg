@@ -147,6 +147,17 @@ const Companion = {
     return { prim, sec, paint, total: prim + sec + paint, round };
   },
 
+  // Partie arrêtée avant la fin du 2e tour du round 5
+  isEarly(p) { return !(p.round === 5 && p.active && p.active !== p.first); },
+
+  // Résultat : celui qui abandonne ou subit la table rase perd ; sinon, au score
+  resultOf(p, me, op) {
+    const E = this.isEarly(p) && p.endEarly;
+    if (E && E.by === "me") return "defaite";
+    if (E && E.by === "opp") return "victoire";
+    return me > op ? "victoire" : me < op ? "defaite" : "egalite";
+  },
+
   mission(g, side) {
     const name = side === "me" ? g.myMission : g.oppMission;
     const data = g.missionsData && (side === "me" ? g.missionsData.mine : g.missionsData.opp);
@@ -779,17 +790,36 @@ Overlays.allStrats = function (app) {
 };
 
 Overlays.matchEnd = function (app) {
-  const g = Companion.game(app);
+  const g = Companion.game(app), p = g.play;
   const me = Companion.totals(app, "me"), op = Companion.totals(app, "opp");
-  const res = me.total > op.total ? "Victoire" : me.total < op.total ? "Défaite" : "Égalité";
+  const opp = UI.esc(g.oppName || "Mon adversaire");
+  // Fin avant le terme du 5e round : un joueur s'arrête (abandon ou table rase) et perd, quel que soit le score
+  const early = Companion.isEarly(p), E = early ? (p.endEarly || {}) : {};
+  const res = Companion.resultOf(p, me.total, op.total);
+  const labels = { victoire: "Victoire", defaite: "Défaite", egalite: "Égalité" };
+  const endBox = !early ? "" : `
+    <h3 class="prep-h">Fin avant le terme du round 5 : qui s'arrête ?</h3>
+    <div class="seg-big">
+      <button class="role-btn ${E.by === "me" ? "is-on" : ""}" data-action="setEndBy" data-arg="me">Moi</button>
+      <button class="role-btn ${E.by === "opp" ? "is-on" : ""}" data-action="setEndBy" data-arg="opp">${opp}</button>
+      <button class="role-btn ${E.by === "none" ? "is-on" : ""}" data-action="setEndBy" data-arg="none" title="Temps écoulé, accord entre joueurs… : résultat au score">Personne</button></div>
+    ${E.by === "me" || E.by === "opp" ? `<h3 class="prep-h">Pourquoi ?</h3>
+    <div class="seg-big">
+      <button class="role-btn ${E.why !== "table-rase" ? "is-on" : ""}" data-action="setEndWhy" data-arg="abandon">Abandon</button>
+      <button class="role-btn ${E.why === "table-rase" ? "is-on" : ""}" data-action="setEndWhy" data-arg="table-rase">Table rase</button></div>
+    <p class="hint">${E.by === "me" ? "Tu" : opp} ${E.why === "table-rase" ? (E.by === "me" ? "n'as plus de figurines sur la table" : "n'a plus de figurines sur la table")
+      : (E.by === "me" ? "abandonnes" : "abandonne")} : la partie compte comme ${E.by === "me" ? "une défaite" : "une victoire"}, quel que soit le score.</p>`
+      : E.by === "none" ? `<p class="hint">Personne n'abandonne : le résultat dépend du score.</p>` : ""}`;
   return this.wrap(`
     <div class="ov-head"><h2>Fin de partie</h2><button class="btn btn-s" data-action="closeOverlay">Retour</button></div>
     <div class="end-score"><div><span>Moi</span><b>${me.total}</b><small>${me.prim} primaire · ${me.sec} secondaire${me.paint ? ` · ${me.paint} peinture` : ""}</small></div>
       <div><span>${UI.esc(g.oppName || "Adversaire")}</span><b>${op.total}</b><small>${op.prim} primaire · ${op.sec} secondaire${op.paint ? ` · ${op.paint} peinture` : ""}</small></div></div>
-    <p class="end-res">${res}</p>
+    <p class="end-res">${labels[res]}${early && (E.by === "me" || E.by === "opp") ? ` <small class="muted">· ${UI.esc(History.endLabel({ end: { by: E.by, why: E.why || "abandon", round: p.round } }, g.oppName))}</small>` : ""}</p>
+    ${endBox}
     <h3 class="prep-h">Bilan à chaud</h3>
     <textarea class="gnote" data-input="setGameNote" data-field="debrief" placeholder="Ce qui a marché, ce qui a raté, à retenir pour la prochaine fois…">${UI.esc(g.debrief || "")}</textarea>
-    <div class="ov-btns"><button class="btn btn-primary" data-action="finishGame">Enregistrer le résultat</button></div>`, "ov-narrow");
+    <div class="ov-btns">${early && !E.by ? `<span class="hint">Indique d'abord qui s'arrête.</span>` : ""}
+      <button class="btn btn-primary" data-action="finishGame" ${early && !E.by ? "disabled" : ""}>Enregistrer le résultat</button></div>`, "ov-narrow");
 };
 
 /* ---------- Actions ---------- */
@@ -1105,11 +1135,30 @@ const CompanionActions = {
     this.toast("Action annulée.");
   },
 
+  // Fin anticipée : qui s'arrête (me / opp / none) et pourquoi (abandon / table-rase)
+  setEndBy(by) {
+    const p = Companion.game(this).play;
+    p.endEarly = Object.assign({}, p.endEarly, { by });
+    if (by === "none") delete p.endEarly.why; else p.endEarly.why = p.endEarly.why || "abandon";
+    Store.save();
+    this.render();
+  },
+  setEndWhy(why) {
+    const p = Companion.game(this).play;
+    p.endEarly = Object.assign({}, p.endEarly, { why });
+    Store.save();
+    this.render();
+  },
+
   finishGame() {
-    const g = Companion.game(this);
+    const g = Companion.game(this), p = g.play;
     const me = Companion.totals(this, "me").total, op = Companion.totals(this, "opp").total;
+    if (Companion.isEarly(p) && !(p.endEarly && p.endEarly.by)) return;
     g.score = { me, opp: op };
-    g.result = me > op ? "victoire" : me < op ? "defaite" : "egalite";
+    g.result = Companion.resultOf(p, me, op);
+    const E = Companion.isEarly(p) && p.endEarly;
+    if (E && (E.by === "me" || E.by === "opp")) g.end = { by: E.by, why: E.why || "abandon", round: p.round };
+    else delete g.end;
     g.play.finished = true;
     Store.save();
     this.state.screen = "home";

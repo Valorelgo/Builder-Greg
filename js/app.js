@@ -82,7 +82,40 @@ const App = {
     this.render({ resetScroll: true });
   },
 
+  /* ---------- Thème ----------
+     Le thème par défaut (style.css) est celui des Emperor's Children : il reste
+     sur l'accueil et les écrans communs (listes, parties, historique).
+     Couleur et police ne changent que dans une autre faction : builder,
+     lancement, partie, consultation d'une liste, « Consulter », collection. */
+
+  themeFaction() {
+    const st = this.state;
+    if (st.overlay === "listView" && st.listView && st.listView.ctx) return st.listView.ctx.faction.id;
+    switch (st.screen) {
+      case "faction": case "format": case "detachments": case "units": return st.factionId;
+      case "launch": { const l = st.launch && Store.getList(st.launch.listId); return l && l.factionId; }
+      case "game": { const g = Store.data.games.find(x => x.id === st.gameId); return g && g.myFaction; }
+      case "codex": return st.codex && st.codex.factionId;
+      case "collection": return st.coll && st.coll.factionId;
+      default: return null;
+    }
+  },
+
+  applyTheme() {
+    const id = this.themeFaction(), root = document.documentElement;
+    if (!id || id === "emperors-children") {
+      delete root.dataset.faction;
+      root.style.removeProperty("--accent");
+      return;
+    }
+    const a = (typeof Armies !== "undefined" && Armies.get(id)) || FactionCatalog.find(f => f.id === id);
+    root.dataset.faction = id;
+    if (a && a.color) root.style.setProperty("--accent", a.color);
+    else root.style.removeProperty("--accent");
+  },
+
   render(opts = {}) {
+    this.applyTheme();
     // Tout est déplié à chaque arrivée sur un écran
     if (this._lastScreen !== this.state.screen) {
       this.state.collapsed = {};
