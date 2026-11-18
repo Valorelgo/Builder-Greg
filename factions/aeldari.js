@@ -79,7 +79,44 @@ Factions.register({
         "__Frappe Soudaine__ (Sudden Strike) — Déclencheur : quand une unité éligible de votre armée finit un mouvement de Charge. Effet : jusqu'à la fin du tour, chaque fois qu'une de ses figurines fait un mouvement d'engagement ou de consolidation, elle peut se déplacer de 6\" au lieu de 3\".",
         "__Opportunité Saisie__ (Opportunity Seized) — Déclencheur : quand une unité ennemie finit une Retraite. Effet : 1 unité éligible de votre armée (sauf TITANIC) qui a commencé la phase à portée d'engagement de cette unité ennemie peut faire un Mouvement Normal de D6+1\" maximum.",
         "__Se Replier__ (Fade Back) — Déclencheur : à la phase de Tir adverse, juste après qu'une unité ennemie a tiré. Effet : 1 unité éligible de votre armée (sauf TITANIC) touchée par une ou plusieurs de ces attaques peut faire un Mouvement Normal de D6+1\" maximum."
-      ]
+      ],
+      // Compagnon de jeu : manœuvres sous les stratagèmes, avec le compteur de pions (js/manoeuvres.js)
+      maneuvers: {
+        tracker: "pions-transe",
+        title: "Transe Guerrière",
+        onSpend: [
+          { ability: "Indomitable Strength of Will", text: "si c'est son unité, lance 1D6 : sur 3+, +1 pion." },
+          { enhancement: "prince-pirate", text: "si c'est son unité, lance 1D6 : sur 3+, +1 pion." },
+          { ability: "Superlative Strategist", text: "si c'est son unité, tu peux relancer les jets de la manœuvre." }
+        ],
+        items: [
+          { id: "vifs-comme-le-vent", name: "Vifs comme le Vent", nameEn: "Swift as the Wind", repeatable: true,
+            moments: [{ tour: "vous", phase: "mouvement" }],
+            trigger: "Quand une unité éligible de votre armée est choisie pour faire un Mouvement Normal, une Avance ou une Retraite.",
+            effect: "Jusqu'à la fin de la phase, ajoutez 2\" au Mouvement de ses figurines. Peut être déclenchée plusieurs fois par phase, par des unités différentes." },
+          { id: "ombres-fugaces", name: "Ombres Fugaces", nameEn: "Flitting Shadows",
+            moments: [{ tour: "vous", phase: "mouvement" }, { tour: "vous", phase: "charge" }],
+            trigger: "Quand une unité éligible de votre armée est choisie pour faire un Mouvement Normal, une Avance ou une Retraite, est placée sur le champ de bataille, ou déclare une charge.",
+            effect: "Jusqu'à la fin du tour, les unités ennemies ne peuvent pas utiliser le stratagème Tir en État d'Alerte pour tirer sur elle." },
+          { id: "moteurs-stellaires", name: "Moteurs Stellaires", nameEn: "Star Engines",
+            moments: [{ tour: "vous", phase: "mouvement" }],
+            trigger: "Quand une unité VEHICLE éligible de votre armée est choisie pour faire une Avance.",
+            effect: "Jusqu'à la fin du tour, ses armes de tir ont [ASSAUT]." },
+          { id: "frappe-soudaine", name: "Frappe Soudaine", nameEn: "Sudden Strike",
+            moments: [{ tour: "vous", phase: "charge" }],
+            trigger: "Quand une unité éligible de votre armée finit un mouvement de Charge.",
+            effect: "Jusqu'à la fin du tour, chaque fois qu'une de ses figurines fait un mouvement d'engagement ou de consolidation, elle peut se déplacer de 6\" au lieu de 3\"." },
+          { id: "opportunite-saisie", name: "Opportunité Saisie", nameEn: "Opportunity Seized",
+            moments: [{ tour: "adversaire", phase: "mouvement" }],
+            trigger: "Quand une unité ennemie finit une Retraite.",
+            effect: "1 unité éligible de votre armée (sauf TITANIC) qui a commencé la phase à portée d'engagement de cette unité ennemie peut faire un Mouvement Normal de D6+1\" maximum." },
+          { id: "se-replier", name: "Se Replier", nameEn: "Fade Back",
+            moments: [{ tour: "adversaire", phase: "tir" }],
+            free: { abilities: ["Fleet of Foot"], enhancements: ["injections-surrenales"] },
+            trigger: "À la phase de Tir adverse, juste après qu'une unité ennemie a tiré.",
+            effect: "1 unité éligible de votre armée (sauf TITANIC) touchée par une ou plusieurs de ces attaques peut faire un Mouvement Normal de D6+1\" maximum." }
+        ]
+      }
     },
     {
       // Pas d'effet en jeu : autorise les unités HARLEQUINS dans une armée Asuryani
@@ -439,6 +476,11 @@ Factions.register({
           "(Fin de la règle à vérifier : le texte était peut-être coupé sur la capture.)"
         ]
       },
+
+      // Précision affichée sur Se Replier en partie (js/manoeuvres.js)
+      maneuverMods: [
+        { id: "se-replier", text: "Une fois par tour, une unité YNNARI peut faire un mouvement d'Élan de D6+1\" au lieu du Mouvement Normal." }
+      ],
 
       enhancements: [
         {
@@ -1527,6 +1569,13 @@ Factions.register({
           "Ajoutez 1 aux jets de dés de vos manœuvres agiles."
         ]
       },
+
+      // Précisions affichées sur les manœuvres en partie (js/manoeuvres.js)
+      maneuverMods: [
+        { id: "vifs-comme-le-vent", text: "+1\" de plus (3\" en tout)." },
+        { id: "opportunite-saisie", text: "+1 au jet de dés (D6+2\")." },
+        { id: "se-replier", text: "+1 au jet de dés (D6+2\")." }
+      ],
 
       enhancements: [
         {
